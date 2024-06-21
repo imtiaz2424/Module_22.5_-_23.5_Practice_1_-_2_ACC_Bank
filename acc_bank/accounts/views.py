@@ -1,11 +1,26 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.views.generic import FormView
 from .forms import UserRegistrationForm,UserUpdateForm
 from django.contrib.auth import login, logout
 from django.urls import reverse_lazy
 from django.contrib.auth.views import LoginView, LogoutView
+from django.contrib.auth import update_session_auth_hash
+from django.contrib import messages
+from django.contrib.auth.forms import PasswordChangeForm
+from django.core.mail import EmailMessage, EmailMultiAlternatives
+from django.template.loader import render_to_string
 from django.views import View
-from django.shortcuts import redirect
+
+def send_password_change_email(user, subject, template):
+        message = render_to_string(template, {
+            'user' : user,            
+        })
+        send_email = EmailMultiAlternatives(subject, '', to=[user.email])
+        send_email.attach_alternative(message, "text/html")
+        send_email.send()
+
+
+
 
 class UserRegistrationView(FormView):
     template_name = 'accounts/user_registration.html'
@@ -44,5 +59,25 @@ class UserBankAccountUpdateView(View):
             form.save()
             return redirect('profile')  
         return render(request, self.template_name, {'form': form})
+    
+
+    
+    
+
+
+
+
+def pass_change(request):
+    if request.method == 'POST':
+        form = PasswordChangeForm(request.user, data=request.POST)
+        if form.is_valid():            
+            messages.success(request, 'Password Updated Successfully')
+            send_password_change_email(request.user, "Password Change Request Message", "accounts/pass_change_email.html")
+            form.save()
+            update_session_auth_hash(request, form.user)
+            return redirect('profile')
+    else:
+        form = PasswordChangeForm(user=request.user)
+    return render(request, 'accounts/pass_change.html', {'form' : form})
     
     
